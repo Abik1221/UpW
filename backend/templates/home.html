@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <h2>Detected Clips</h2>
+        
+        {% if clips %}
+            <div class="list-group">
+                {% for clip in clips %}
+                <div class="list-group-item">
+                    <h5 class="mb-1">Keyword: {{ clip.keyword.word }}</h5>
+                    <p class="mb-1">{{ clip.transcript|truncatewords:20 }}</p>
+                    <small class="text-muted">Detected at: {{ clip.timestamp }}</small>
+                    {% if clip.audio_file %}
+                    <div class="mt-2">
+                        <audio controls>
+                            <source src="{{ clip.audio_file.url }}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No clips detected yet. Add some keywords and wait for the scheduled recordings!
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recording Controls</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Current Status:</label>
+                    <span class="badge {% if is_recording %}bg-danger{% else %}bg-success{% endif %}">
+                        {% if is_recording %}Recording...{% else %}Idle{% endif %}
+                    </span>
+                </div>
+                
+                <form id="recordingForm" class="mb-3">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                        <label for="duration" class="form-label">Duration (minutes):</label>
+                        <input type="number" class="form-control" id="duration" value="5" min="1" max="120">
+                    </div>
+                    <button type="button" onclick="startRecording()" class="btn btn-success btn-sm">
+                        Start Test Recording
+                    </button>
+                    <button type="button" onclick="stopRecording()" class="btn btn-warning btn-sm">
+                        Stop Recording
+                    </button>
+                </form>
+                
+                <h6>Active Keywords:</h6>
+                {% if keywords %}
+                    <ul class="list-group list-group-flush">
+                        {% for keyword in keywords %}
+                        <li class="list-group-item">{{ keyword.word }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No keywords added yet.</p>
+                {% endif %}
+
+                <h6 class="mt-3">Recording Schedule:</h6>
+                {% if schedules %}
+                    <ul class="list-group list-group-flush">
+                        {% for schedule in schedules %}
+                        <li class="list-group-item">{{ schedule.get_time_slot_display }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No schedules set up.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startRecording() {
+    const duration = document.getElementById('duration').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('/start-recording/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({duration: duration})
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.status === 'success' ? 'Recording started!' : 'Error: ' + data.message);
+        location.reload();
+    });
+}
+
+function stopRecording() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('/stop-recording/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Recording stopped!');
+        location.reload();
+    });
+}
+</script>
+{% endblock %}
